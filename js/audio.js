@@ -1,8 +1,3 @@
-/**
- * Persona 4: Motor de Audio y Sonificación (Web Audio API)
- * Convierte una cola de nodos (regiones de imagen) en música pentatónica espacializada.
- */
-
 class ReproductorSonificacion {
   constructor() {
     this.audioCtx = null;
@@ -21,7 +16,7 @@ class ReproductorSonificacion {
     // Estado actual de reproducción (para poder reanudar tras pausa)
     this.colaActual = null;
     this.dimensionesImagen = { ancho: 1, alto: 1 };
-    this.onNotaSonando = null; // Callback para Persona 5
+    this.onNotaSonando = null;
     this.onFinalizar = null;   // Callback opcional al vaciar la cola
   }
 
