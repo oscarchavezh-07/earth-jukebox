@@ -116,7 +116,7 @@ class Imagen {
     }
 
     // Determina si una región debe ser hoja.
-    esHoja(variacion, ancho, alto, umbral, minSize = 8) {
+    esHoja(variacion, ancho, alto, umbral, minSize) {
         return (
             variacion < umbral ||
             ancho <= minSize ||
