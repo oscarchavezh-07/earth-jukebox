@@ -1,20 +1,20 @@
+(() => {
 const IMAGENES = [
-  { nombre: 'Luces nocturnas, 2012 y 2023', src: 'img/temp.png',
-    descripcion: 'Vista nocturna de la Tierra: el fondo es oscuro y las ciudades aparecen como puntos de luz amarilla, más densos en zonas urbanas.' },
-  { nombre: 'Corrientes y temperatura del océano', src: 'img/temp.png',
-    descripcion: 'Mapa del océano con remolinos y corrientes en gradientes de azul a naranja según la temperatura del agua.' },
-  { nombre: 'Aerosoles (GEOS)', src: 'img/temp.png',
-    descripcion: 'Globo con nubes de partículas: polvo, humo y sal marina en tonos distintos sobre un océano oscuro.' },
-  { nombre: 'Dióxido de carbono (DYAMOND)', src: 'img/temp.png',
-    descripcion: 'Mapa global del CO2 con regiones de mayor concentración en colores cálidos y menor en colores fríos.' },
-  { nombre: 'Altura de bosques (GEDI)', src: 'img/temp.png',
-    descripcion: 'Mapa de la altura de la vegetación: verdes intensos donde los árboles son altos y tonos claros donde son bajos.' },
-  { nombre: 'Rayos desde la estación espacial', src: 'img/temp.png',
-    descripcion: 'Mapa oscuro de la Tierra con destellos de color donde se detectaron rayos, más frecuentes cerca del ecuador.' },
+  { nombre: 'Corrientes y temperatura del mar', src: 'img/global-sea-surface-currents-and-temperature.jpg',
+    descripcion: 'Mapa del mundo sobre fondo oscuro, con los continentes en gris. En los océanos se ven finas líneas arremolinadas que siguen las corrientes marinas, coloreadas por temperatura: rojo y naranja en el ecuador y las aguas tropicales, amarillo y verde en latitudes medias, y azul oscuro cerca de los polos.' },
+  { nombre: 'Anomalías de temperatura global', src: 'img/global-temperature-anomalies.jpg',
+    descripcion: 'Mapa del mundo en colores que muestra cuánto más cálida o fría está cada zona respecto a lo normal. El rojo oscuro cubre el Ártico, Asia y el norte de América; el amarillo y el naranja dominan el resto; y hay pequeñas zonas azules y blancas, más frías, cerca de la Antártida.' },
+  { nombre: 'Humedad cerca de la superficie', src: 'img/near-surface-humidity.png',
+    descripcion: 'Mapa del mundo con la humedad del aire cerca de la superficie. Los continentes y los polos se ven en color café, más secos, y una franja azul ancha rodea el ecuador sobre los océanos, donde el aire es más húmedo. Arriba a la izquierda hay un logotipo de la NASA y abajo la fecha.' },
+  { nombre: 'Viento cerca de la superficie', src: 'img/near-surface-wind-speed.png',
+    descripcion: 'Mapa del mundo con la velocidad del viento. Las zonas tranquilas, sobre todo en los trópicos, aparecen en morado oscuro; el azul marca vientos moderados; y el amarillo, naranja y rojo marcan vientos fuertes en remolinos de tormenta, sobre todo en el océano del sur y en el norte del Pacífico. Los continentes se ven en blanco y gris.' },
+  { nombre: 'Precipitación y nubes', src: 'img/precipitation-and-clouds.png',
+    descripcion: 'La Tierra vista como desde un satélite, con océanos azul oscuro, desiertos café y bosques verdes. Las nubes son blancas y la lluvia aparece como manchas verdes, azules y rojas, más abundantes en el ecuador y en espirales de tormenta del hemisferio sur.' },
+  { nombre: 'Lluvia y nieve', src: 'img/rain-and-snow.jpeg',
+    descripcion: 'Mapa del mundo con los continentes en gris y los océanos en negro. La lluvia aparece en manchas verdes, amarillas y rojas, las más intensas en el centro de Estados Unidos, el sureste de Asia y el océano Índico; la nieve se ve en azul claro cerca de los polos y en el norte de Canadá y Rusia.' },
 ];
 
-const ANCHO_ANALISIS = 512;
-const TAM_MINIMO = 8;
+const DIVISOR_DETALLE = 16;
 
 const $ = (id) => document.getElementById(id);
 const selImagen = $('sel-imagen'), selRecorrido = $('sel-recorrido');
@@ -25,37 +25,54 @@ const txtDesc = $('descripcion'), txtEstado = $('estado'), txtNota = $('nota-act
 
 let reproduciendo = false;
 let cancelar = false;
-let ctxAnalisis = null;
-let altoAnalisis = 0;
+let analisis = null;
+let dimAncho = 0;
+let dimAlto = 0;
+let turnoCarga = 0;
 
-function obtenerCola(ctx, ancho, alto, umbral, recorrido) {
+function obtenerCola(umbral, recorrido) {
   try {
-    if (typeof construirArbol === 'function' && typeof Cola === 'function') {
-      const raiz = construirArbol(ctx, 0, 0, ancho, alto, umbral, TAM_MINIMO);
-      const cola = new Cola();
-      const recorrer = { preorden: window.preorden, inorden: window.inorden,
-                         posorden: window.posorden, niveles: window.porNiveles }[recorrido];
-      if (typeof recorrer !== 'function') throw new Error('Falta la función de recorrido: ' + recorrido);
-      recorrer(raiz, cola);
-      return cola;
+    if (analisis && typeof construirArbol === 'function' && typeof recorrer === 'function') {
+      const tamanoMinimo = Math.max(8, Math.round(dimAncho / DIVISOR_DETALLE));
+      const raiz = construirArbol(dimAncho, dimAlto, (x, y, w, h) => analisis.analizar(x, y, w, h), { umbral, tamanoMinimo });
+      return recorrer(raiz, recorrido);
     }
   } catch (e) {
     console.warn('Módulos reales no disponibles, usando mock:', e.message);
   }
-  return mockCola(ancho, alto, umbral);
+  return mockCola(dimAncho, dimAlto, umbral);
 }
 
-async function reproducirCola(cola, alNota) {
-  if (typeof window.reproducir === 'function' && !(cola instanceof Array)) {
-    await window.reproducir(cola, alNota);
-    return;
+let reproductor = null;
+let resolverActual = null;
+
+function reproducirCola(cola, alNota) {
+  if (typeof ReproductorSonificacion === 'function' && !(cola instanceof Array)) {
+    reproductor = reproductor || new ReproductorSonificacion();
+    return new Promise((resolver) => {
+      resolverActual = resolver;
+      reproductor.reproducirCola(
+        cola,
+        dimAncho,
+        dimAlto,
+        (nodo) => {
+          if (!nodo) return;
+          alNota({
+            region: nodo,
+            frecuencia: reproductor.calcularFrecuencia(nodo.color || { r: 128, g: 128, b: 128 }),
+          });
+        },
+        resolver
+      );
+    });
   }
-  await mockReproducir(cola, alNota);
+  return mockReproducir(cola, alNota);
 }
 
 function detenerAudio() {
   cancelar = true;
-  if (typeof window.detenerReproduccion === 'function') window.detenerReproduccion();
+  if (reproductor) reproductor.detener();
+  if (resolverActual) resolverActual();
 }
 
 function mockCola(ancho, alto, umbral) {
@@ -96,7 +113,7 @@ function limpiarResalte() {
 
 function resaltarRegion(r) {
   ajustarCanvas();
-  const k = img.clientWidth / ANCHO_ANALISIS;
+  const k = img.clientWidth / dimAncho;
   const g = cv.getContext('2d');
   g.clearRect(0, 0, cv.width, cv.height);
   g.fillStyle = 'rgba(242, 169, 0, 0.35)';
@@ -108,20 +125,29 @@ function resaltarRegion(r) {
 
 function cargarImagen(indice) {
   const info = IMAGENES[indice];
-  ctxAnalisis = null;
+  const turno = ++turnoCarga;
+  dimAncho = 0;
+  dimAlto = 0;
+  limpiarResalte();
   img.onload = () => {
-    const c = document.createElement('canvas');
-    altoAnalisis = Math.round(ANCHO_ANALISIS * img.naturalHeight / img.naturalWidth);
-    c.width = ANCHO_ANALISIS; c.height = altoAnalisis;
-    ctxAnalisis = c.getContext('2d', { willReadFrequently: true });
-    ctxAnalisis.drawImage(img, 0, 0, ANCHO_ANALISIS, altoAnalisis);
     ajustarCanvas();
-    limpiarResalte();
+    if (typeof Imagen !== 'function') {
+      dimAncho = img.naturalWidth;
+      dimAlto = img.naturalHeight;
+    }
   };
   img.src = info.src;
-  img.alt = info.descripcion;
+  img.alt = info.nombre;
   txtDesc.textContent = info.descripcion;
   txtNota.textContent = '';
+  if (typeof Imagen === 'function') {
+    analisis = analisis || new Imagen('cv-analisis', 0, 8);
+    analisis.cargar(info.src).then(() => {
+      if (turno !== turnoCarga) return;
+      dimAncho = analisis.ancho;
+      dimAlto = analisis.alto;
+    }).catch((e) => ponerEstado('No se pudo cargar la imagen: ' + e.message));
+  }
 }
 
 function ponerEstado(texto) { txtEstado.textContent = texto; }
@@ -135,13 +161,13 @@ function marcarReproduciendo(valor) {
 
 async function reproducir() {
   if (reproduciendo) return;
-  if (!ctxAnalisis) { ponerEstado('La imagen todavía se está cargando. Inténtalo de nuevo en un momento.'); return; }
+  if (!dimAncho) { ponerEstado('La imagen todavía se está cargando. Inténtalo de nuevo en un momento.'); return; }
   cancelar = false;
   marcarReproduciendo(true);
   ponerEstado('Reproduciendo ' + IMAGENES[selImagen.value].nombre + '.');
   let contador = 0;
   try {
-    const cola = obtenerCola(ctxAnalisis, ANCHO_ANALISIS, altoAnalisis, Number(rngUmbral.value), selRecorrido.value);
+    const cola = obtenerCola(Number(rngUmbral.value), selRecorrido.value);
     await reproducirCola(cola, (nota) => {
       contador++;
       resaltarRegion(nota.region);
@@ -181,3 +207,4 @@ document.addEventListener('keydown', (e) => {
 });
 
 cargarImagen(0);
+})();

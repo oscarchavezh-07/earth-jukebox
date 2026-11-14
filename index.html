@@ -35,7 +35,7 @@
 
       <div class="campo">
         <label for="rng-umbral">Nivel de detalle: <output id="out-umbral" for="rng-umbral">25</output></label>
-        <input id="rng-umbral" type="range" min="0" max="60" value="25" aria-describedby="ayuda-umbral">
+        <input id="rng-umbral" type="range" min="10" max="60" value="25" aria-describedby="ayuda-umbral">
         <small id="ayuda-umbral">Valores bajos generan más notas; valores altos, menos.</small>
       </div>
 
@@ -62,6 +62,8 @@
       <p id="estado" role="status" aria-live="polite">Listo para reproducir.</p>
       <p id="nota-actual" aria-live="off"></p>
     </section>
+
+    <canvas id="cv-analisis" hidden aria-hidden="true"></canvas>
   </main>
 
   <script src="js/arbol.js"></script>
