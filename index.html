@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Earth Jukebox: escucha la Tierra</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="saltar" href="#escenario">Saltar al contenido</a>
+
+  <header>
+    <h1>Earth Jukebox</h1>
+    <p>Elige una imagen de la Tierra y escucha cómo suena. Las zonas uniformes dan pocas notas; las zonas con detalle dan más.</p>
+  </header>
+
+  <main>
+    <section id="controles" aria-labelledby="t-controles">
+      <h2 id="t-controles">Controles</h2>
+
+      <div class="campo">
+        <label for="sel-imagen">Imagen</label>
+        <select id="sel-imagen"></select>
+      </div>
+
+      <div class="campo">
+        <label for="sel-recorrido">Orden de lectura</label>
+        <select id="sel-recorrido">
+          <option value="niveles">Por niveles: primero lo general, luego el detalle</option>
+          <option value="preorden">Preorden</option>
+          <option value="inorden">Inorden</option>
+          <option value="posorden">Posorden</option>
+        </select>
+      </div>
+
+      <div class="campo">
+        <label for="rng-umbral">Nivel de detalle: <output id="out-umbral" for="rng-umbral">25</output></label>
+        <input id="rng-umbral" type="range" min="0" max="60" value="25" aria-describedby="ayuda-umbral">
+        <small id="ayuda-umbral">Valores bajos generan más notas; valores altos, menos.</small>
+      </div>
+
+      <div class="acciones">
+        <button id="btn-reproducir" type="button">Reproducir</button>
+        <button id="btn-detener" type="button" disabled>Detener</button>
+      </div>
+      <p class="atajo">Atajos: Espacio reproduce o detiene, Esc detiene.</p>
+    </section>
+
+    <section id="escenario" aria-labelledby="t-escenario" tabindex="-1">
+      <h2 id="t-escenario">Imagen</h2>
+      <figure>
+        <div class="marco">
+          <img id="img-principal" alt="" width="512">
+          <canvas id="cv-resalte" aria-hidden="true"></canvas>
+        </div>
+        <figcaption id="descripcion"></figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="t-estado">
+      <h2 id="t-estado">Estado</h2>
+      <p id="estado" role="status" aria-live="polite">Listo para reproducir.</p>
+      <p id="nota-actual" aria-live="off"></p>
+    </section>
+  </main>
+
+  <script src="js/arbol.js"></script>
+  <script src="js/cola.js"></script>
+  <script src="js/recorridos.js"></script>
+  <script src="js/imagen.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
