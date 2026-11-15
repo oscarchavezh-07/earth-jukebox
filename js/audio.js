@@ -1,5 +1,8 @@
 class ReproductorSonificacion {
   constructor() {
+    this.masterGain = null;
+    this.compressor = null;
+
     this.audioCtx = null;
     this.estaReproduciendo = false;
     this.estaPausado = false;
@@ -23,15 +26,35 @@ class ReproductorSonificacion {
   /**
    * Inicializa o despierta el AudioContext (requiere interacción del usuario por políticas del navegador)
    */
+  
   inicializarContexto() {
     if (!this.audioCtx) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
+
       this.audioCtx = new AudioContext();
+
+      // Volumen general de la aplicación.
+      this.masterGain = this.audioCtx.createGain();
+      this.masterGain.gain.value = 0.85;
+
+      // Compresión para mantener un volumen más consistente.
+      this.compressor = this.audioCtx.createDynamicsCompressor();
+
+      this.compressor.threshold.value = -18;
+      this.compressor.knee.value = 20;
+      this.compressor.ratio.value = 4;
+      this.compressor.attack.value = 0.005;
+      this.compressor.release.value = 0.15;
+
+      this.masterGain.connect(this.compressor);
+      this.compressor.connect(this.audioCtx.destination);
     }
-    if (this.audioCtx.state === 'suspended') {
+
+    if (this.audioCtx.state === "suspended") {
       this.audioCtx.resume();
     }
   }
+
 
   /**
    * 1. COLOR -> TONO (0 a 1 -> Frecuencia Pentatónica)
@@ -59,70 +82,224 @@ class ReproductorSonificacion {
    * 2. TAMAÑO DE ZONA -> DURACIÓN Y VOLUMEN
    * Zonas grandes = notas más largas y con mayor presencia.
    */
+
   calcularDuracionYVolumen(nodo, anchoTotal, altoTotal) {
     const areaNodo = (nodo.ancho || 10) * (nodo.alto || 10);
     const areaTotal = (anchoTotal || 100) * (altoTotal || 100);
-    
-    // Proporción del área (usamos raíz cuadrada para suavizar diferencias extremas)
-    const proporcion = Math.min(1, Math.sqrt(areaNodo / areaTotal));
 
-    // Duración entre 0.15s (región pequeña/detalle) y 0.85s (región grande/fondo)
-    const duracion = 0.15 + (proporcion * 0.70);
+    const proporcion = Math.min( 1, Math.sqrt(areaNodo / areaTotal));
 
-    // Volumen (ganancia) entre 0.08 y 0.45 (evita saturación si se solapan notas)
-    const volumen = 0.08 + (proporcion * 0.37);
+    // Duración base más perceptible.
+    const duracion = 0.25 + proporcion * 0.65;
+
+    // Mayor ganancia en regiones pequeñas.
+    // Las regiones grandes conservan mayor presencia.
+    const volumen = 0.22 + proporcion * 0.38;
 
     return { duracion, volumen };
   }
+
 
   /**
    * 3. POSICIÓN HORIZONTAL -> PANEADO ESTÉREO (-1 izquierda a +1 derecha)
    */
   calcularPaneo(nodo, anchoTotal) {
     const centroX = (nodo.x || 0) + ((nodo.ancho || 0) / 2);
-    const paneo = ((centroX / (anchoTotal || 1)) * 2) - 1;
-    return Math.max(-1, Math.min(1, paneo)); // Clamp [-1, 1]
+    const paneo = ((centroX / (anchoTotal || 1)) * 1.3) - 0.65;
+    return Math.max(-0.65, Math.min(0.65, paneo)); // Clamp [-1, 1]
   }
 
   /**
    * Sintetiza y dispara una sola nota usando Web Audio API
    */
-  tocarNota(nodo, anchoTotal, altoTotal) {
-    this.inicializarContexto();
-    const ahora = this.audioCtx.currentTime;
 
-    const frecuencia = this.calcularFrecuencia(nodo.color || { r: 128, g: 128, b: 128 });
-    const { duracion, volumen } = this.calcularDuracionYVolumen(nodo, anchoTotal, altoTotal);
-    const paneo = this.calcularPaneo(nodo, anchoTotal);
 
-    // Nodos de audio: Oscilador -> Ganancia (Envolvente) -> Paneo Estéreo -> Salida
-    const oscilador = this.audioCtx.createOscillator();
-    const ganancia = this.audioCtx.createGain();
-    const panner = this.audioCtx.createStereoPanner();
+  seleccionarInstrumento(nodo, frecuencia) {
+    const area = (nodo.ancho || 1) * (nodo.alto || 1);
 
-    // 'triangle' o 'sine' producen un timbre cálido tipo marimba/sintetizador suave
-    oscilador.type = 'triangle';
-    oscilador.frequency.setValueAtTime(frecuencia, ahora);
+    // Regiones grandes y graves: pad suave.
+    if (frecuencia <= 220 && area > 1000) {
+      return "pad";
+    }
 
-    // Envolvente ADSR suave para evitar "clics" al iniciar o cortar el audio
-    ganancia.gain.setValueAtTime(0.0001, ahora);
-    ganancia.gain.linearRampToValueAtTime(volumen, ahora + 0.03); // Ataque rápido (30ms)
-    ganancia.gain.exponentialRampToValueAtTime(0.0001, ahora + duracion); // Desvanecimiento suave
+    // Regiones graves: sonido suave.
+    if (frecuencia <= 220) {
+      return "suave";
+    }
 
-    // Posición espacial
-    panner.pan.setValueAtTime(paneo, ahora);
+    // Frecuencias medias: marimba.
+    if (frecuencia <= 440) {
+      return "marimba";
+    }
 
-    // Conexiones
-    oscilador.connect(ganancia);
-    ganancia.connect(panner);
-    panner.connect(this.audioCtx.destination);
+    // Frecuencias medias-altas: piano.
+    if (frecuencia <= 660) {
+      return "piano";
+    }
 
-    // Ejecución
-    oscilador.start(ahora);
-    oscilador.stop(ahora + duracion + 0.02);
-
-    return duracion;
+    // Frecuencias altas: campana.
+    return "bell";
   }
+
+
+
+  variacionNatural(valor, porcentaje) {
+    const factor = 1 + (Math.random() * 2 - 1) * porcentaje;
+    return valor * factor;
+  }
+
+
+tocarNota(nodo, anchoTotal, altoTotal) {
+  this.inicializarContexto();
+
+  const ahora = this.audioCtx.currentTime;
+
+  const frecuencia = this.calcularFrecuencia(
+    nodo.color || { r: 128, g: 128, b: 128 }
+  );
+
+  const { duracion: duracionBase, volumen } =
+    this.calcularDuracionYVolumen(
+      nodo, anchoTotal, altoTotal
+    );
+
+  // 1. Reducir duración en frecuencias altas.
+  const factorDuracion = Math.max(
+    0.45,
+    1 - Math.max(0, frecuencia - 440) / 1600
+  );
+
+  const duracion = duracionBase * factorDuracion;
+
+  const paneo = this.calcularPaneo(nodo, anchoTotal);
+
+  // 2. Seleccionar instrumento.
+  const instrumento = this.seleccionarInstrumento(
+    nodo, frecuencia
+  );
+
+  const config = this.getInstrumentConfig(
+    instrumento
+  );
+
+  // 3. Crear nodos de audio.
+  const salida = this.audioCtx.createGain();
+  const panner = this.audioCtx.createStereoPanner();
+
+  const ataque = Math.min(
+    config.ataque,
+    duracion * 0.25
+  );
+
+  const finAtaque = ahora + ataque;
+  const finNota = ahora + duracion;
+
+  salida.gain.setValueAtTime(0.0001, ahora);
+
+  salida.gain.linearRampToValueAtTime(
+    Math.max(0.0001, volumen * config.volumen),
+    finAtaque
+  );
+
+  salida.gain.exponentialRampToValueAtTime(
+    0.0001,
+    finNota
+  );
+
+  // 4. Paneo y conexiones.
+  panner.pan.setValueAtTime(paneo, ahora);
+
+  salida.connect(panner);
+  panner.connect(this.masterGain);
+
+  // 5. Generador de osciladores.
+  const crearOscilador = (tipo, freq, amplitud) => {
+    const osc = this.audioCtx.createOscillator();
+    const gan = this.audioCtx.createGain();
+
+    osc.type = tipo;
+    osc.frequency.setValueAtTime(freq, ahora);
+    gan.gain.value = amplitud;
+
+    osc.connect(gan);
+    gan.connect(salida);
+
+    osc.start(ahora);
+    osc.stop(ahora + duracion + 0.03);
+  };
+
+  // 6. Selección de timbre.
+  switch (instrumento) {
+    case "pad":
+      crearOscilador("sine", frecuencia, 0.8);
+      crearOscilador("triangle", frecuencia * 2, 0.15);
+      crearOscilador("sine", frecuencia * 0.5, 0.2);
+      break;
+
+    case "suave":
+      crearOscilador("sine", frecuencia, 0.8);
+      crearOscilador("triangle", frecuencia * 2, 0.1);
+      break;
+
+    case "marimba":
+      crearOscilador("triangle", frecuencia, 0.7);
+      crearOscilador("sine", frecuencia * 2, 0.35);
+      crearOscilador("sine", frecuencia * 3, 0.12);
+      break;
+
+    case "piano":
+      crearOscilador("triangle", frecuencia, 0.65);
+      crearOscilador("sine", frecuencia * 2, 0.25);
+      crearOscilador("sine", frecuencia * 3, 0.12);
+      crearOscilador("sine", frecuencia * 4, 0.06);
+      break;
+
+    case "bell":
+      crearOscilador("sine", frecuencia, 0.45);
+      crearOscilador("sine", frecuencia * 2.4, 0.25);
+      crearOscilador("sine", frecuencia * 3.8, 0.12);
+      crearOscilador("sine", frecuencia * 5.1, 0.06);
+      break;
+  }
+
+  return duracion;
+}
+
+
+
+
+  getInstrumentConfig(tipo) {
+  const instrumentos = {
+    pad: {
+      ataque: 0.12,
+      volumen: 0.65,
+      release: 0.18
+    },
+    suave: {
+      ataque: 0.06,
+      volumen: 0.75,
+      release: 0.10
+    },
+    marimba: {
+      ataque: 0.008,
+      volumen: 1.00,
+      release: 0.04
+    },
+    piano: {
+      ataque: 0.015,
+      volumen: 0.85,
+      release: 0.08
+    },
+    bell: {
+      ataque: 0.005,
+      volumen: 0.60,
+      release: 0.02
+    }
+  };
+
+  return instrumentos[tipo] || instrumentos.suave;
+  }
+
 
   /**
    * 4. REPRODUCTOR: Desencola notas una por una y las programa en el tiempo
@@ -181,15 +358,28 @@ class ReproductorSonificacion {
     }
 
     // Tocar el sonido y obtener cuánto dura esta nota
-    const duracionNota = this.tocarNota(
-      nodoActual,
-      this.dimensionesImagen.ancho,
-      this.dimensionesImagen.alto
-    );
+    let duracionNota;
+
+    try {
+      duracionNota = this.tocarNota(
+        nodoActual,
+        this.dimensionesImagen.ancho,
+        this.dimensionesImagen.alto
+      );
+    } catch (e) {
+      console.error("Error al tocar nota:", e);
+
+      // Intentar continuar con la siguiente nota.
+      this.temporizador = setTimeout(() => {
+        this.procesarSiguienteNota();
+      }, 120);
+
+      return;
+    }
 
     // Programar la siguiente nota ligeramente antes de que acabe la actual (85% de su duración)
     // Esto crea un flujo musical continuo y orgánico en lugar de pausas robóticas
-    const tiempoSiguienteMs = Math.max(120, duracionNota * 850);
+    const tiempoSiguienteMs = Math.max(150, duracionNota * 900);
 
     this.temporizador = setTimeout(() => {
       this.procesarSiguienteNota();
