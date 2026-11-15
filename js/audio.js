@@ -118,7 +118,7 @@ class ReproductorSonificacion {
     const area = (nodo.ancho || 1) * (nodo.alto || 1);
 
     // Regiones grandes y graves: pad suave.
-    if (frecuencia <= 220 && area > 1000) {
+    if (frecuencia <= 300 && area > 1000) {
       return "pad";
     }
 
@@ -128,12 +128,12 @@ class ReproductorSonificacion {
     }
 
     // Frecuencias medias: marimba.
-    if (frecuencia <= 440) {
+    if (frecuencia <= 230) {
       return "marimba";
     }
 
     // Frecuencias medias-altas: piano.
-    if (frecuencia <= 660) {
+    if (frecuencia <= 400) {
       return "piano";
     }
 
@@ -248,7 +248,7 @@ tocarNota(nodo, anchoTotal, altoTotal) {
       break;
 
     case "piano":
-      crearOscilador("triangle", frecuencia, 0.65);
+      crearOscilador("triangle", frecuencia * 2, 0.65);
       crearOscilador("sine", frecuencia * 2, 0.25);
       crearOscilador("sine", frecuencia * 3, 0.12);
       crearOscilador("sine", frecuencia * 4, 0.06);
