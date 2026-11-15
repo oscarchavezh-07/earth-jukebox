@@ -91,8 +91,9 @@ async function mockReproducir(notas, alNota) {
   for (const nota of notas) {
     if (cancelar) break;
     const osc = ac.createOscillator(), gan = ac.createGain();
+    osc.type = 'sine';
     osc.frequency.value = nota.frecuencia;
-    gan.gain.value = 0.15;
+    gan.gain.value = 0.25;
     osc.connect(gan).connect(ac.destination);
     osc.start();
     alNota(nota);
