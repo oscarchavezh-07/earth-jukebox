@@ -306,6 +306,22 @@ function describeError(error) {
   return 'The sound could not be played. Try another image or reload the page.';
 }
 
+async function mockReproducir(notas, alNota) {
+  const ac = new (window.AudioContext || window.webkitAudioContext)();
+  for (const nota of notas) {
+    if (cancelar) break;
+    const osc = ac.createOscillator(), gan = ac.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = nota.frecuencia;
+    gan.gain.value = 0.25;
+    osc.connect(gan).connect(ac.destination);
+    osc.start();
+    alNota(nota);
+    await new Promise((r) => setTimeout(r, nota.duracion * 1000));
+    osc.stop();
+  }
+  ac.close();
+}
 async function play() {
   if (run) return;
   const mine = { cancelled: false };
