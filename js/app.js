@@ -47,8 +47,8 @@ const DETAIL_MAX = 10;
 const MIN_SIZE_DIVISOR = 16;            // smallest region = image width / 16 (never below 8 px)
 const TEXT_SIZES = [100, 125, 150, 175, 200];
 
-const PREF_TEXT = 'earthjukebox.textSize';
-const PREF_CONTRAST = 'earthjukebox.contrast';
+const PREF_TEXT = 'hearth.textSize';
+const PREF_CONTRAST = 'hearth.contrast';
 
 /* ---------- Page elements ---------- */
 
