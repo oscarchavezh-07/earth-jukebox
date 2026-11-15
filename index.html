@@ -1,70 +1,107 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Earth Jukebox: escucha la Tierra</title>
+  <title>Earth Jukebox: listen to the Earth</title>
+  <meta name="description" content="Pick a NASA view of Earth and listen to it. Earth Jukebox turns the colors and shapes of each image into musical notes.">
+  <link rel="preload" href="fonts/atkinson-hyperlegible-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <a class="saltar" href="#escenario">Saltar al contenido</a>
+  <a class="skip-link" href="#viewer">Skip to the image viewer</a>
 
-  <header>
-    <h1>Earth Jukebox</h1>
-    <p>Elige una imagen de la Tierra y escucha cómo suena. Las zonas uniformes dan pocas notas; las zonas con detalle dan más.</p>
+  <header class="site-header">
+    <div class="brand">
+      <h1>Earth Jukebox</h1>
+      <p>Pick a NASA view of our planet and listen to it. The colors and shapes of each image become musical notes.</p>
+    </div>
+
+    <div class="display-options" role="group" aria-labelledby="display-title">
+      <p id="display-title" class="display-title">Display</p>
+      <button id="btn-contrast" class="btn btn-small" type="button" aria-pressed="false">High contrast</button>
+      <button id="btn-text-smaller" class="btn btn-small" type="button" aria-label="Make text smaller">A−</button>
+      <button id="btn-text-larger" class="btn btn-small" type="button" aria-label="Make text larger">A+</button>
+      <output id="text-size" aria-label="Text size">100%</output>
+    </div>
   </header>
 
   <main>
-    <section id="controles" aria-labelledby="t-controles">
-      <h2 id="t-controles">Controles</h2>
+    <section id="viewer" class="viewer" aria-labelledby="image-name" tabindex="-1">
+      <p id="counter" class="counter">Image 1 of 6</p>
+      <h2 id="image-name"></h2>
 
-      <div class="campo">
-        <label for="sel-imagen">Imagen</label>
-        <select id="sel-imagen"></select>
-      </div>
-
-      <div class="campo">
-        <label for="sel-recorrido">Orden de lectura</label>
-        <select id="sel-recorrido">
-          <option value="niveles">Por niveles: primero lo general, luego el detalle</option>
-          <option value="preorden">Preorden</option>
-          <option value="inorden">Inorden</option>
-          <option value="posorden">Posorden</option>
-        </select>
-      </div>
-
-      <div class="campo">
-        <label for="rng-umbral">Nivel de detalle: <output id="out-umbral" for="rng-umbral">25</output></label>
-        <input id="rng-umbral" type="range" min="10" max="60" value="25" aria-describedby="ayuda-umbral">
-        <small id="ayuda-umbral">Valores bajos generan más notas; valores altos, menos.</small>
-      </div>
-
-      <div class="acciones">
-        <button id="btn-reproducir" type="button">Reproducir</button>
-        <button id="btn-detener" type="button" disabled>Detener</button>
-      </div>
-      <p class="atajo">Atajos: Espacio reproduce o detiene, Esc detiene.</p>
-    </section>
-
-    <section id="escenario" aria-labelledby="t-escenario" tabindex="-1">
-      <h2 id="t-escenario">Imagen</h2>
-      <figure>
-        <div class="marco">
-          <img id="img-principal" alt="" width="512">
-          <canvas id="cv-resalte" aria-hidden="true"></canvas>
+      <figure class="stage">
+        <div class="frame">
+          <img id="main-image" alt="">
+          <canvas id="highlight" aria-hidden="true"></canvas>
         </div>
-        <figcaption id="descripcion"></figcaption>
+        <figcaption>
+          <span class="cap-label">Description</span>
+          <span id="description"></span>
+        </figcaption>
       </figure>
+
+      <div class="player" role="group" aria-label="Playback and image controls">
+        <button id="btn-prev" class="btn btn-secondary" type="button">Previous image</button>
+        <button id="btn-play" class="btn btn-primary" type="button" data-state="idle">Play sound</button>
+        <button id="btn-next" class="btn btn-secondary" type="button">Next image</button>
+      </div>
+
+      <progress id="progress" max="1" value="0" aria-label="Playback progress"></progress>
+      <p id="status" class="status" role="status"></p>
+      <p id="now-playing" class="now-playing" aria-live="off"></p>
+      <p class="hint">Press Esc at any time to stop the sound. Headphones give the best experience.</p>
     </section>
 
-    <section aria-labelledby="t-estado">
-      <h2 id="t-estado">Estado</h2>
-      <p id="estado" role="status" aria-live="polite">Listo para reproducir.</p>
-      <p id="nota-actual" aria-live="off"></p>
+    <section id="gallery-section" class="panel" aria-labelledby="gallery-title">
+      <h2 id="gallery-title">Choose an image</h2>
+      <p id="gallery-hint" class="hint">Use the arrow keys to move between images.</p>
+      <div id="gallery" class="gallery" role="radiogroup" aria-labelledby="gallery-title" aria-describedby="gallery-hint"></div>
     </section>
 
-    <canvas id="cv-analisis" hidden aria-hidden="true"></canvas>
+    <section id="settings" class="panel" aria-labelledby="settings-title">
+      <h2 id="settings-title">Sound settings</h2>
+      <div class="settings-grid">
+        <div class="field">
+          <label for="sel-order">Reading order</label>
+          <select id="sel-order" aria-describedby="order-help">
+            <option value="niveles">Level order: large regions first, then finer detail</option>
+            <option value="preorden">Preorder: root, then left branch, then right branch</option>
+            <option value="inorden">Inorder: left branch, root, then right branch</option>
+            <option value="posorden">Postorder: branches first, root last</option>
+          </select>
+          <small id="order-help">Sets the order in which the regions of the image are played.</small>
+        </div>
+
+        <div class="field">
+          <label for="rng-detail">Detail: <output id="out-detail" for="rng-detail">7 of 10</output></label>
+          <input id="rng-detail" type="range" min="1" max="10" step="1" value="7" aria-describedby="detail-help">
+          <small id="detail-help">Higher values split the image into more, smaller regions, which gives more notes.</small>
+        </div>
+
+        <div class="field check">
+          <input id="chk-highlight" type="checkbox" checked>
+          <label for="chk-highlight">Highlight the region that is playing</label>
+        </div>
+      </div>
+    </section>
+
+    <section id="how" class="panel" aria-labelledby="how-title">
+      <h2 id="how-title">How to listen</h2>
+      <ul>
+        <li><strong>Pitch.</strong> Cooler colors, such as blues, sound lower. Warmer colors, such as reds and yellows, and brighter areas sound higher.</li>
+        <li><strong>Length and volume.</strong> Large, uniform regions give long, louder notes. Small regions with a lot of detail give short, softer notes.</li>
+        <li><strong>Stereo position.</strong> Regions on the left of the image play in your left ear, and regions on the right play in your right ear.</li>
+      </ul>
+    </section>
   </main>
+
+  <footer class="site-footer">
+    <p>Images: <a href="https://svs.gsfc.nasa.gov/">NASA Scientific Visualization Studio</a>. Built for the NASA Space Apps Challenge 2026, “The Earth Information Jukebox.”</p>
+  </footer>
+
+  <canvas id="analysis-canvas" hidden aria-hidden="true"></canvas>
 
   <script src="js/arbol.js"></script>
   <script src="js/cola.js"></script>
